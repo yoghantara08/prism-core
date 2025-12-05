@@ -18,10 +18,10 @@ abstract contract BaseHook is IHooks {
     error InvalidPool();
     error HookNotImplemented();
 
-    IPoolManager public immutable poolManager;
+    IPoolManager public immutable POOL_MANAGER;
 
     constructor(IPoolManager _poolManager) {
-        poolManager = _poolManager;
+        POOL_MANAGER = _poolManager;
         validateHookAddress(this);
     }
 
@@ -31,7 +31,7 @@ abstract contract BaseHook is IHooks {
     }
 
     function _onlyPoolManager() internal view {
-        if (msg.sender != address(poolManager)) revert NotPoolManager();
+        if (msg.sender != address(POOL_MANAGER)) revert NotPoolManager();
     }
 
     function getHookPermissions()

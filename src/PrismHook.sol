@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity 0.8.26;
 
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
@@ -12,7 +12,6 @@ import {
 } from "v4-core/src/types/BeforeSwapDelta.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
-
 import {BaseHook} from "./BaseHook.sol";
 import {IShadowSwap} from "./interfaces/IShadowSwap.sol";
 
@@ -31,8 +30,6 @@ contract PrismHook is BaseHook {
         bool success
     );
 
-    error Unauthorized();
-    error OrderNotFound();
     error InvalidOrder();
 
     constructor(
@@ -70,7 +67,7 @@ contract PrismHook is BaseHook {
     function beforeSwap(
         address sender,
         PoolKey calldata key,
-        SwapParams calldata params,
+        SwapParams calldata,
         bytes calldata hookData
     )
         external
@@ -79,8 +76,8 @@ contract PrismHook is BaseHook {
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         PoolId poolId = key.toId();
-
         uint256 orderId = abi.decode(hookData, (uint256));
+
         if (!SHADOW_SWAP.validateOrder(orderId, sender, poolId)) {
             revert InvalidOrder();
         }
@@ -90,19 +87,18 @@ contract PrismHook is BaseHook {
         return (
             BaseHook.beforeSwap.selector,
             BeforeSwapDeltaLibrary.ZERO_DELTA,
-            0 // no dynamic fee
+            0
         );
     }
 
     function afterSwap(
         address sender,
         PoolKey calldata key,
-        SwapParams calldata params,
+        SwapParams calldata,
         BalanceDelta delta,
         bytes calldata hookData
     ) external override onlyPoolManager returns (bytes4, int128) {
         PoolId poolId = key.toId();
-
         uint256 orderId = abi.decode(hookData, (uint256));
 
         int256 amount0 = delta.amount0();
@@ -116,7 +112,6 @@ contract PrismHook is BaseHook {
         }
 
         bool success = SHADOW_SWAP.settleOrder(orderId, sender, outputAmount);
-
         activeOrders[poolId][sender] = false;
 
         emit ShadowSwapExecuted(poolId, sender, orderId, success);

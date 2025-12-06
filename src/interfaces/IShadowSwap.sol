@@ -30,6 +30,7 @@ interface IShadowSwap {
     error InsufficientEncryptedBalance();
     error InvalidEncryptedAmount();
     error SlippageExceeded();
+    error AlreadyInitializedHook();
 
     event ShadowOrderCreated(
         uint256 indexed orderId,
@@ -52,6 +53,8 @@ interface IShadowSwap {
         Currency indexed token,
         uint256 timestamp
     );
+
+    function setPrismHook(address _prismHook) external;
 
     function createShadowOrder(
         PoolId poolId,
@@ -83,8 +86,7 @@ interface IShadowSwap {
 
     function withdrawEncrypted(
         Currency token,
-        bytes calldata encryptedAmount,
-        bytes calldata permission
+        bytes calldata encryptedAmount
     ) external;
 
     function getEncryptedBalance(

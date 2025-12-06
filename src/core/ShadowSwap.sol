@@ -15,9 +15,10 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {Currency} from "v4-core/src/types/Currency.sol";
+
 import {IShadowSwap} from "../interfaces/IShadowSwap.sol";
 
-abstract contract ShadowSwap is IShadowSwap, Permissioned {
+contract ShadowSwap is IShadowSwap, Permissioned {
     using PoolIdLibrary for PoolKey;
 
     struct ShadowOrder {
@@ -34,26 +35,29 @@ abstract contract ShadowSwap is IShadowSwap, Permissioned {
     }
 
     IPoolManager public immutable POOL_MANAGER;
-    address public immutable PRISM_HOOK;
-    uint256 public orderIdCounter;
+    address public immutable OWNER;
+    address public prismHook;
 
+    uint256 public orderIdCounter;
     mapping(uint256 => ShadowOrder) internal _orders;
     mapping(address => mapping(Currency => euint64))
         internal _encryptedBalances;
     mapping(address => uint256[]) internal _userOrders;
 
-    constructor(address _poolManager, address _prismHook) {
+    constructor(address _poolManager, address _owner) {
         POOL_MANAGER = IPoolManager(_poolManager);
-        PRISM_HOOK = _prismHook;
+        OWNER = _owner;
+    }
+
+    function setPrismHook(address _prismHook) external {
+        if (msg.sender != OWNER) revert Unauthorized();
+        if (prismHook != address(0)) revert AlreadyInitializedHook();
+        prismHook = _prismHook;
     }
 
     modifier onlyHook() {
-        _onlyHook();
+        if (msg.sender != prismHook) revert Unauthorized();
         _;
-    }
-
-    function _onlyHook() internal view {
-        if (msg.sender != PRISM_HOOK) revert Unauthorized();
     }
 
     function createShadowOrder(
@@ -186,10 +190,8 @@ abstract contract ShadowSwap is IShadowSwap, Permissioned {
     function withdrawEncrypted(
         Currency token,
         bytes calldata encryptedAmount
-        // bytes calldata permission
     ) external {
         inEuint64 memory amountInput = abi.decode(encryptedAmount, (inEuint64));
-        // Permission memory perm = abi.decode(permission, (Permission));
 
         euint64 amount = FHE.asEuint64(amountInput);
         euint64 currentBalance = _encryptedBalances[msg.sender][token];

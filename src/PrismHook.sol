@@ -19,8 +19,8 @@ contract PrismHook is BaseHook {
     using PoolIdLibrary for PoolKey;
     using BeforeSwapDeltaLibrary for BeforeSwapDelta;
 
-    IShadowSwap public immutable SHADOW_SWAP;
-
+    IShadowSwap public shadowSwap;
+    address public immutable OWNER;
     mapping(PoolId => mapping(address => bool)) public activeOrders;
 
     event ShadowSwapExecuted(
@@ -31,12 +31,20 @@ contract PrismHook is BaseHook {
     );
 
     error InvalidOrder();
+    error AlreadyInitialized();
+    error Unauthorized();
 
     constructor(
         IPoolManager _poolManager,
-        address _shadowSwap
+        address _owner
     ) BaseHook(_poolManager) {
-        SHADOW_SWAP = IShadowSwap(_shadowSwap);
+        OWNER = _owner;
+    }
+
+    function setShadowSwap(address _shadowSwap) external {
+        if (msg.sender != OWNER) revert Unauthorized();
+        if (address(shadowSwap) != address(0)) revert AlreadyInitialized();
+        shadowSwap = IShadowSwap(_shadowSwap);
     }
 
     function getHookPermissions()
@@ -78,7 +86,7 @@ contract PrismHook is BaseHook {
         PoolId poolId = key.toId();
         uint256 orderId = abi.decode(hookData, (uint256));
 
-        if (!SHADOW_SWAP.validateOrder(orderId, sender, poolId)) {
+        if (!shadowSwap.validateOrder(orderId, sender, poolId)) {
             revert InvalidOrder();
         }
 
@@ -111,7 +119,8 @@ contract PrismHook is BaseHook {
             outputAmount = uint256(amount1);
         }
 
-        bool success = SHADOW_SWAP.settleOrder(orderId, sender, outputAmount);
+        bool success = shadowSwap.settleOrder(orderId, sender, outputAmount);
+
         activeOrders[poolId][sender] = false;
 
         emit ShadowSwapExecuted(poolId, sender, orderId, success);
